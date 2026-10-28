@@ -1,0 +1,80 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyInstaller and Ninja
+        run: python -m pip install pyinstaller==6.19.0 ninja
+
+      - name: Build RecompModMerger
+        run: python tools/build_deps.py --merger-only
+
+      - name: Build the converter
+        run: python tools/build_exe.py
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir build/package
+          cp GUIDE.md build/package/
+          case "${{ matrix.platform }}" in
+            windows) cp build/dist/BKRecompRomhackConverter.exe build/package/ ;;
+            linux)   cp build/dist/BKRecompRomhackConverter build/package/ ;;
+            macos)   cp -R build/dist/BKRecompRomhackConverter.app build/package/ ;;
+          esac
+          if [ "${{ matrix.platform }}" = macos ]; then
+            ditto -c -k build/package build/BKRecompRomhackConverter-macos.zip
+          else
+            python -c "import shutil; shutil.make_archive('build/BKRecompRomhackConverter-${{ matrix.platform }}', 'zip', 'build/package')"
+          fi
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: converter-${{ matrix.platform }}
+          path: build/BKRecompRomhackConverter-${{ matrix.platform }}.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Create a draft release
+        run: gh release create "$GITHUB_REF_NAME" release/*.zip --repo "$GITHUB_REPOSITORY" --draft --generate-notes

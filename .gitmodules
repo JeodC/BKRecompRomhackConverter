@@ -1,0 +1,10 @@
+[submodule "deps/N64Recomp"]
+	path = deps/N64Recomp
+	url = https://github.com/N64Recomp/N64Recomp
+[submodule "deps/BKRecompModTemplate"]
+	path = deps/BKRecompModTemplate
+	url = https://github.com/BanjoRecomp/BKRecompModTemplate
+	ignore = dirty
+[submodule "deps/BKRecompRomhackTool"]
+	path = deps/BKRecompRomhackTool
+	url = https://github.com/Mr-Wiseguy/BKRecompRomhackTool
